@@ -93,6 +93,13 @@ nav button.on::after{
 }
 .chip.blue{border-color:var(--ai);color:var(--ai)}
 .chip.red{border-color:var(--beni);color:var(--beni);background:var(--beni);color:#fff}
+.dl-card.dl-done .name{text-decoration:line-through}
+.dl-card.dl-done .dl-count{opacity:.55}
+.sub-btn{
+  margin-left:auto;font-family:inherit;font-size:.72rem;border:1px solid var(--line);
+  border-radius:999px;padding:3px 10px;background:#fff;color:var(--sub);cursor:pointer;
+}
+.sub-btn.on{background:#5b7a63;border-color:#5b7a63;color:#fff}
 
 /* 検索・フィルタ */
 .searchrow{display:flex;gap:8px;margin-bottom:10px}
@@ -497,6 +504,15 @@ function daysLeft(dateStr){
   return Math.round((d - today) / 86400000);
 }
 function fmtMD(dateStr){ const d = new Date(dateStr+"T00:00:00"); return (d.getMonth()+1)+"/"+d.getDate(); }
+const DL_SUB_KEYS = ["submitted","done","isSubmitted","submittedFlag","teishutsu"];
+function dlSubKey(dl){ return DL_SUB_KEYS.find(k=>dl[k]!==undefined) || "submitted"; }
+function toggleDlSubmitted(id){
+  const dl = data.deadlines.find(x=>x.id===id);
+  if(!dl) return;
+  const key = dlSubKey(dl);
+  dl[key] = !dl[key];
+  save(); renderDeadlines();
+}
 function renderDeadlines(){
   const q = document.getElementById("dlSearch").value.trim();
   let list = data.deadlines.slice();
@@ -514,7 +530,8 @@ function renderDeadlines(){
     const numLabel = n < 0 ? "済" : n;
     const toko = data.ku.filter(k => k.deadlineId===dl.id && SUBMITTED.includes(k.status)).length;
     const koho = data.ku.filter(k => k.deadlineId===dl.id && k.status==="候補").length;
-    return `<div class="card tappable dl-card" onclick="openDlModal('${dl.id}')">
+    const sub = !!dl[dlSubKey(dl)];
+    return `<div class="card tappable dl-card${sub?' dl-done':''}" onclick="openDlModal('${dl.id}')">
       <div class="dl-count ${cls}"><span class="lbl">あと</span><span class="num">${numLabel}</span><span class="lbl">${n<0?"":"日"}</span></div>
       <div class="dl-body">
         <div class="name">${esc(destName(dl.destId))}</div>
@@ -522,6 +539,7 @@ function renderDeadlines(){
         <div class="chips">
           <span class="chip ${toko>0?'red':''}">投句 ${toko}句</span>
           <span class="chip ${koho>0?'blue':''}">候補 ${koho}句</span>
+          <button class="sub-btn ${sub?'on':''}" onclick="event.stopPropagation();toggleDlSubmitted('${dl.id}')">${sub?'✓ 提出済み':'□ 提出済みにする'}</button>
         </div>
       </div>
     </div>`;
