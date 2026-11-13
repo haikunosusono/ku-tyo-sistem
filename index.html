@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title data-id="th-modified">ニンニン句帳 v1.3</title>
+<title>ニンニン句帳 v2026.11.14b</title>
 <style>
 :root{
   --paper:#faf6ee;
@@ -100,6 +100,17 @@ nav button.on::after{
   border-radius:999px;padding:3px 10px;background:#fff;color:var(--sub);cursor:pointer;
 }
 .sub-btn.on{background:#5b7a63;border-color:#5b7a63;color:#fff}
+.updbar{display:none;align-items:center;gap:8px;flex-wrap:wrap;background:#fdf3e3;
+  border:1px solid var(--beni);border-radius:12px;padding:8px 10px;margin:0 0 10px;
+  font-size:.78rem;color:var(--beni-dark)}
+.updbar .msg{flex:1;min-width:150px;font-weight:600}
+.updbar button{border:none;border-radius:9px;font-family:inherit;font-size:.78rem;padding:7px 12px;cursor:pointer}
+.updbar .go{background:var(--beni);color:#fff;font-weight:700}
+.updbar .later{background:transparent;color:var(--sub);border:1px solid var(--line)}
+.updline{font-size:.78rem;color:var(--sub);margin-top:6px}
+.updline.new{color:var(--beni-dark);font-weight:700}
+.updstat{font-size:.84rem;margin:2px 0 4px;line-height:1.6}
+.updstat.ok{color:#5b7a63}
 
 /* 検索・フィルタ */
 .searchrow{display:flex;gap:8px;margin-bottom:10px}
@@ -250,7 +261,7 @@ nav button.on::after{
 .toast.show{opacity:1}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
-<meta property="og:title" content="ニンニン句帳 v1.3" data-id="th-modified"><meta property="og:image" content="https://tiiny.host/assets/logo-purple-bg.png" data-id="th-modified"><meta property="og:image:width" content="1501" data-id="th-modified"><meta property="og:image:height" content="1501" data-id="th-modified"><meta property="og:image:type" content="image/png" data-id="th-modified"><meta property="og:url" content="https://ku-tyo-sistem.tiiny.site/" data-id="th-modified"><meta property="og:type" content="website" data-id="th-modified"><script defer data-domain="ku-tyo-sistem.tiiny.site" src="https://analytics.tiiny.net/js/plausible.js"></script></head>
+<meta property="og:title" content="ニンニン句帳 v2026.11.14b" data-id="th-modified"><meta property="og:image" content="https://tiiny.host/assets/logo-purple-bg.png" data-id="th-modified"><meta property="og:image:width" content="1501" data-id="th-modified"><meta property="og:image:height" content="1501" data-id="th-modified"><meta property="og:image:type" content="image/png" data-id="th-modified"><meta property="og:url" content="https://ku-tyo-sistem.tiiny.site/" data-id="th-modified"><meta property="og:type" content="website" data-id="th-modified"><script defer data-domain="ku-tyo-sistem.tiiny.site" src="https://analytics.tiiny.net/js/plausible.js"></script></head>
 <body>
 <header>
   <h1 id="appTitle">ニンニン句帳</h1>
@@ -268,6 +279,11 @@ nav button.on::after{
 </nav>
 
 <main>
+<div class="updbar" id="updBar">
+  <span class="msg" id="updBarMsg">🌱 新しいバージョンがあります</span>
+  <button class="go" id="updBarGo">更新する</button>
+  <button class="later" id="updBarLater">あとで</button>
+</div>
 
 <!-- ========== 締切 ========== -->
 <section class="tabpage active" id="page-shimekiri">
@@ -352,7 +368,14 @@ nav button.on::after{
   </div>
   <div class="other-sec">
     <h3>このアプリについて</h3>
-    <p><span id="aboutName">ニンニン句帳</span> v1.3<br>締切・句帳・投句先・句会・歳時記の記録をひとつに。データは端末内のみ・通信なし（きごさいへのリンクを除く）。</p>
+    <p><span id="aboutName">ニンニン句帳</span> <span id="appVer">v2026.11.14b</span><br>締切・句帳・投句先・句会・歳時記の記録をひとつに。データは端末内のみ。通信は更新の確認ときごさいへのリンクだけです。</p>
+    <p class="updline" id="updLine"></p>
+    <div class="other-btns">
+      <button id="updChkBtn">更新を確認する</button>
+      <button id="updDoBtn" style="display:none;background:var(--beni);color:#fff;border-color:var(--beni)">最新版に更新する</button>
+    </div>
+    <p class="updstat" id="updStatus"></p>
+    <p class="updstat" id="updLast" style="color:var(--sub);font-size:.75rem"></p>
   </div>
 </section>
 
@@ -945,7 +968,7 @@ function applyAppName(){
   const n = data.appName || "ニンニン句帳";
   document.getElementById("appTitle").textContent = n;
   document.getElementById("aboutName").textContent = n;
-  document.title = n + " v1.3";
+  document.title = n + " " + APP_VER;
   document.getElementById("appNameInput").value = data.appName || "";
 }
 function saveAppName(){
@@ -964,10 +987,51 @@ function toast(msg){
 function renderAll(){
   renderDeadlines(); renderKuFilters(); renderKu(); renderDests(); renderKukai(); renderKigoFilters(); renderKigo();
 }
+
+/* ============ 更新チェック ============ */
+const APP_VER="v2026.11.14b";
+const UPDATE_URL="https://haikunosusono.github.io/ku-tyo-sistem/";
+const UPD_KEY="ninninKuchoUpdateCheck";
+let updLatest="";
+function verKey(s){let m=/v(\d{4})\.(\d{1,2})\.(\d{1,2})([a-z]?)/.exec(s||"");if(m)return [+m[1],+m[2],+m[3],m[4]?m[4].charCodeAt(0)-96:0];m=/v(\d+)/.exec(s||"");return m?[0,0,+m[1],0]:[0,0,0,0];}
+function verNewer(a,b){const x=verKey(a),y=verKey(b);for(let i=0;i<4;i++){if(x[i]!==y[i])return x[i]>y[i];}return false;}
+function updLoad(){try{return JSON.parse(localStorage.getItem(UPD_KEY)||"{}")||{};}catch(e){return {};}}
+function updSave(o){try{localStorage.setItem(UPD_KEY,JSON.stringify(o));}catch(e){}}
+function updTodayStr(){const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
+function updNowLabel(){const d=new Date();return (d.getMonth()+1)+"/"+d.getDate()+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+function renderUpdLine(){const el=document.getElementById("updLine");if(!el)return;const u=updLoad();el.className="updline";
+  if(u.latest&&verNewer(u.latest,APP_VER)){el.classList.add("new");el.textContent="🌱 更新プログラムがあります（"+u.latest+"）　いまは "+APP_VER;}
+  else if(u.at)el.textContent="✓ "+APP_VER+" は最新版です（"+u.at+" 確認）";
+  else el.textContent=APP_VER+"（まだ確認していません）";}
+async function fetchLatestVer(){const ctl=new AbortController();const tm=setTimeout(()=>ctl.abort(),8000);
+  try{const r=await fetch(UPDATE_URL+"?chk="+Date.now(),{cache:"no-store",signal:ctl.signal});if(!r.ok)throw new Error("http "+r.status);
+  const txt=await r.text();const m=/const APP_VER\s*=\s*"(v\d+[^"]*)"/.exec(txt);if(!m)throw new Error("no version");return m[1];}finally{clearTimeout(tm);}}
+function showUpd(state,ver){const st=document.getElementById("updStatus"),doBtn=document.getElementById("updDoBtn"),bar=document.getElementById("updBar");if(!st)return;st.className="updstat";
+  if(state==="new"){st.textContent="🌱 新しいバージョン "+ver+" があります。いまは "+APP_VER+" です。";doBtn.style.display="";}
+  else if(state==="latest"){st.className="updstat ok";st.textContent="✓ いま最新版です："+APP_VER;doBtn.style.display="none";bar.style.display="none";}
+  else if(state==="error"){st.textContent="いまは確認できませんでした。電波のよいところで、もう一度ためしてください。";doBtn.style.display="none";}
+  else{st.textContent="確認しています…";doBtn.style.display="none";}
+  const u=updLoad();document.getElementById("updLast").textContent=u.at?"最終確認："+u.at:"";}
+async function checkUpdate(manual){if(manual)showUpd("checking");
+  try{const v=await fetchLatestVer();updLatest=v;const u=updLoad();u.day=updTodayStr();u.at=updNowLabel();u.latest=v;updSave(u);renderUpdLine();
+    if(verNewer(v,APP_VER)){showUpd("new",v);if(manual||u.dismissed!==v+"@"+updTodayStr()){document.getElementById("updBarMsg").textContent="🌱 新しいバージョン "+v+" があります";document.getElementById("updBar").style.display="flex";}}
+    else{if(manual){showUpd("latest");toast("いま最新版です ✓ "+APP_VER);}else document.getElementById("updLast").textContent="最終確認："+u.at;}
+  }catch(e){renderUpdLine();if(manual){showUpd("error");toast("いまは確認できませんでした");}}}
+function doUpdate(){["updDoBtn","updBarGo"].forEach(id=>{const b=document.getElementById(id);if(b){b.disabled=true;b.textContent="更新しています…";}});
+  setTimeout(()=>{location.replace(UPDATE_URL+"?t="+Date.now());},250);}
+function initUpdate(){try{if(/[?&]t=\d+/.test(location.search))history.replaceState(null,"",location.pathname);}catch(e){}
+  const u=updLoad();const lastEl=document.getElementById("updLast");if(lastEl)lastEl.textContent=u.at?"最終確認："+u.at:"";renderUpdLine();
+  if(u.latest&&verNewer(u.latest,APP_VER)){updLatest=u.latest;if(u.dismissed!==u.latest+"@"+updTodayStr()){document.getElementById("updBarMsg").textContent="🌱 新しいバージョン "+u.latest+" があります";document.getElementById("updBar").style.display="flex";}}
+  document.getElementById("updChkBtn").addEventListener("click",()=>checkUpdate(true));
+  document.getElementById("updDoBtn").addEventListener("click",doUpdate);
+  document.getElementById("updBarGo").addEventListener("click",doUpdate);
+  document.getElementById("updBarLater").addEventListener("click",()=>{document.getElementById("updBar").style.display="none";const x=updLoad();x.dismissed=updLatest+"@"+updTodayStr();updSave(x);});
+  if(u.day!==updTodayStr()&&navigator.onLine!==false)setTimeout(()=>checkUpdate(false),2000);}
+
 (function init(){
   const d = new Date();
   document.getElementById("todayLabel").textContent = d.getFullYear() + "年" + (d.getMonth()+1) + "月" + d.getDate() + "日";
-  renderAll(); applyAppName();
+  renderAll(); applyAppName(); initUpdate();
 })();
 </script>
 </body>
